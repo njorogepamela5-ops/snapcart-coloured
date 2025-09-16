@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 
 interface Product {
@@ -43,8 +44,6 @@ export default function SupermarketPage({ params }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("priceAsc");
 
@@ -63,17 +62,15 @@ export default function SupermarketPage({ params }: Props) {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        setLoading(true);
         const { data, error } = await supabase
           .from("products")
           .select("*")
           .eq("supermarket_id", supermarketId);
         if (error) throw error;
         setProducts(data || []);
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch products");
-      } finally {
-        setLoading(false);
+      } catch (err: unknown) {
+        console.error("Failed to fetch products:", err);
+        setProducts([]);
       }
     };
     fetchProducts();
@@ -90,8 +87,9 @@ export default function SupermarketPage({ params }: Props) {
           .order("created_at", { ascending: false });
         if (error) throw error;
         setOrders(data || []);
-      } catch (err) {
-        console.error(err);
+      } catch (err: unknown) {
+        console.error("Failed to fetch orders:", err);
+        setOrders([]);
       }
     };
     fetchOrders();
@@ -101,9 +99,9 @@ export default function SupermarketPage({ params }: Props) {
   const addToCart = (product: Product) => {
     if (product.stock === 0) return;
     setCart((prev) => {
-      const item = prev.find((i) => i.product.id === product.id);
-      if (item) {
-        if (item.quantity < product.stock) {
+      const existing = prev.find((i) => i.product.id === product.id);
+      if (existing) {
+        if (existing.quantity < product.stock) {
           return prev.map((i) =>
             i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
           );
@@ -158,9 +156,11 @@ export default function SupermarketPage({ params }: Props) {
         quantity: i.quantity,
         price: i.product.price,
       }));
+
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
       if (itemsError) throw itemsError;
 
+      // Reduce stock
       for (const i of cart) {
         await supabase
           .from("products")
@@ -168,9 +168,11 @@ export default function SupermarketPage({ params }: Props) {
           .eq("id", i.product.id);
       }
 
+      // Clear cart
       setCart([]);
       localStorage.removeItem(`cart_${supermarketId}`);
 
+      // Refresh products and orders
       const { data: refreshedProducts } = await supabase
         .from("products")
         .select("*")
@@ -185,9 +187,9 @@ export default function SupermarketPage({ params }: Props) {
       setOrders(refreshedOrders || []);
 
       alert("Order placed successfully!");
-    } catch (err: any) {
-      console.error(err);
-      alert("Checkout error: " + err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) alert("Checkout error: " + err.message);
+      else alert("Unexpected error during checkout");
     }
   };
 
@@ -229,10 +231,12 @@ export default function SupermarketPage({ params }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {filteredProducts.map((product) => (
           <div key={product.id} className="border p-2 rounded">
-            <img
-              src={product.image_url || "https://via.placeholder.com/150"}
-              alt={product.name}
-              className="w-full h-32 object-cover mb-2"
+            <Image
+              src={product.image_url || "/placeholder.png"}
+              alt={product.name || "Product"}
+              width={150}
+              height={150}
+              className="object-cover mb-2 w-full h-32"
             />
             <h2 className="font-semibold">{product.name}</h2>
             {product.description && <p className="text-sm mb-1">{product.description}</p>}
@@ -307,41 +311,29 @@ export default function SupermarketPage({ params }: Props) {
         {orders.length === 0 && <p>No past orders.</p>}
         {orders.map((order) => (
           <div key={order.id} className="border p-2 mb-2 rounded">
-            <p>
-              <span className="font-semibold">Order ID:</span> {order.id}
-            </p>
-            <p>
-              <span className="font-semibold">Total:</span> KES {order.total_amount}
-            </p>
-            <p>
-              <span className="font-semibold">Status:</span> {order.status}
-            </p>
-            <p>
-              <span className="font-semibold">Date:</span>{" "}
-              {new Date(order.created_at).toLocaleString()}
-            </p>
+            <p><span className="font-semibold">Order ID:</span> {order.id}</p>
+            <p><span className="font-semibold">Total:</span> KES {order.total_amount}</p>
+            <p><span className="font-semibold">Status:</span> {order.status}</p>
+            <p><span className="font-semibold">Date:</span> {new Date(order.created_at).toLocaleString()}</p>
             {order.order_items && order.order_items.length > 0 && (
-              <div className="mt-2">
-                <span className="font-semibold">Items:</span>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
-                  {order.order_items.map((item, idx) => {
-                    const product = products.find((p) => p.id === item.product_id);
-                    return (
-                      <div key={idx} className="border p-1 rounded flex flex-col items-center">
-                        <img
-                          src={product?.image_url || "https://via.placeholder.com/80"}
-                          alt={product?.name || "Product"}
-                          className="w-20 h-20 object-cover mb-1"
-                        />
-                        <p className="text-sm font-medium text-center">
-                          {product?.name || item.product_id}
-                        </p>
-                        <p className="text-xs">Qty: {item.quantity}</p>
-                        <p className="text-xs">Price: {item.price}</p>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                {order.order_items.map((item, idx) => {
+                  const product = products.find((p) => p.id === item.product_id);
+                  return (
+                    <div key={idx} className="border p-1 rounded flex flex-col items-center">
+                      <Image
+                        src={product?.image_url || "/placeholder.png"}
+                        alt={product?.name || "Product"}
+                        width={80}
+                        height={80}
+                        className="object-cover mb-1"
+                      />
+                      <p className="text-sm font-medium text-center">{product?.name || item.product_id}</p>
+                      <p className="text-xs">Qty: {item.quantity}</p>
+                      <p className="text-xs">Price: {item.price}</p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
