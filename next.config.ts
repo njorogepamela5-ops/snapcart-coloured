@@ -1,7 +1,9 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    domains: ["via.placeholder.com"], // add your external image host here
+  },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

@@ -1,0 +1,31 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "Maize Flour 2kg",
+      "price": 180,
+      "stock": 50,
+      "image_url": "https://via.placeholder.com/150",
+      "description": "Premium sifted maize flour",
+      "category": "Food"
+    },
+    {
+      "id": 2,
+      "name": "Cooking Oil 1L",
+      "price": 320,
+      "stock": 30,
+      "image_url": "https://via.placeholder.com/150",
+      "description": "Pure sunflower oil",
+      "category": "Food"
+    },
+    {
+      "id": 3,
+      "name": "Toilet Paper 10 Pack",
+      "price": 500,
+      "stock": 100,
+      "image_url": "https://via.placeholder.com/150",
+      "description": "Soft & strong tissue paper",
+      "category": "Home"
+    }
+  ]
+}
