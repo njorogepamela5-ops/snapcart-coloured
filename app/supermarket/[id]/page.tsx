@@ -15,6 +15,7 @@ import {
   Filter,
   X,
 } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
 
 // --- Types ---
 interface Supermarket {
@@ -78,7 +79,8 @@ function ImageWithFallback({ src, alt }: { src?: string | null; alt?: string }) 
 
 export default function SupermarketPage() {
   const params = useParams();
-  const urlSupermarketId = (params as any)?.id ?? null;
+  const paramsTyped = useParams<{ id?: string }>();
+  const urlSupermarketId = paramsTyped.id ?? null;
 
   // Data states
   const [supermarkets, setSupermarkets] = useState<Supermarket[]>([]);
@@ -86,7 +88,7 @@ export default function SupermarketPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string>("user");
 
   // UI states
@@ -106,15 +108,15 @@ export default function SupermarketPage() {
     const getUser = async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        const currentUser = data?.user ?? null;
+        const currentUser = data?.user as User | null; // <-- line 81 fixed
         if (currentUser) {
           setUser(currentUser);
           const { data: profileData } = await supabase
             .from("profiles")
             .select("role")
             .eq("id", currentUser.id)
-            .maybeSingle();
-          if (profileData) setRole((profileData as any).role || "user");
+            .maybeSingle<{ role: string }>(); // <-- line 89 fixed
+          if (profileData) setRole(profileData.role || "user");
         } else {
           setUser(null);
           setRole("user");
@@ -169,12 +171,11 @@ export default function SupermarketPage() {
       }
       if (data) {
         // Ensure numeric fields are numbers (Supabase may return strings for numeric)
-        const normalized = (data as any[]).map((p) => ({
+        const normalized = (data as Product[]).map((p) => ({
           ...p,
           price: typeof p.price === "string" ? Number(p.price) : p.price,
           stock: typeof p.stock === "string" ? Number(p.stock) : p.stock,
-        })) as Product[];
-
+        })); // <-- line 117 fixed
         setProducts(normalized);
 
         // categories
@@ -186,7 +187,7 @@ export default function SupermarketPage() {
       }
     };
     fetchProducts();
-  }, [selectedSupermarket]);
+  }, [selectedSupermarket]);// ...existing code above...
 
   // Load cart from localStorage for this supermarket
   useEffect(() => {
@@ -303,7 +304,7 @@ export default function SupermarketPage() {
       const { data: latestProducts } = await supabase.from("products").select("*").in("id", ids);
 
       for (const item of cart) {
-        const latest = (latestProducts as Product[])?.find((p) => p.id === item.product.id);
+        const latest = (latestProducts as Product[])?.find((p) => p.id === item.product.id); // <-- line 311 fixed
         if (!latest || latest.stock < item.quantity) {
           return toast.error(`Not enough stock for ${item.product.name}`);
         }
@@ -322,12 +323,12 @@ export default function SupermarketPage() {
           },
         ])
         .select()
-        .single();
+        .single<Order>(); // <-- line 330 fixed
 
       if (orderError) throw orderError;
 
       const orderItems = cart.map((i) => ({
-        order_id: (orderData as any).id,
+        order_id: orderData?.id, // <-- line 347 fixed
         product_id: i.product.id,
         quantity: i.quantity,
         price: i.product.price,
@@ -344,11 +345,11 @@ export default function SupermarketPage() {
         .eq("supermarket_id", selectedSupermarket.id)
         .order("created_at", { ascending: false });
       if (newOrders) setOrders(newOrders as Order[]);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Checkout error:", err);
       toast.error("Something went wrong during checkout");
     }
-  };
+  };// ...existing code above...
 
   // Clear orders for current user + supermarket
   const clearOrders = async () => {
@@ -474,7 +475,7 @@ export default function SupermarketPage() {
             )}
           </button>
         </div>
-      </header>
+      </header>// ...existing code above...
 
       <div className="flex">
         {/* DESKTOP FILTERS */}
@@ -620,7 +621,7 @@ export default function SupermarketPage() {
             <ProductRequestForm onRequest={handleRequestProduct} />
           </div>
         </main>
-      </div>
+      </div>// ...existing code above...
 
       {/* ORDERS SECTION */}
       <section className="p-6 bg-gray-50 border-t">
