@@ -171,7 +171,7 @@ export default function SupermarketPage() {
       }
       if (data) {
         // Ensure numeric fields are numbers (Supabase may return strings for numeric)
-        const normalized = (data as Product[]).map((p) => ({
+        const normalized: Product[] = (data as Product[]).map((p) => ({
           ...p,
           price: typeof p.price === "string" ? Number(p.price) : p.price,
           stock: typeof p.stock === "string" ? Number(p.stock) : p.stock,
@@ -179,10 +179,10 @@ export default function SupermarketPage() {
         setProducts(normalized);
 
         // categories
-        const cats = Array.from(new Set(normalized.map((p) => p.category || "Uncategorized")));
+        const cats: string[] = Array.from(new Set(normalized.map((p) => p.category || "Uncategorized")));
         setCategories(cats);
         // set sensible max price
-        const max = normalized.reduce((m, it) => Math.max(m, it.price ?? 0), 0);
+        const max: number = normalized.reduce((m, it) => Math.max(m, it.price ?? 0), 0);
         setMaxPrice(max > 0 ? max : 100000);
       }
     };
@@ -195,7 +195,7 @@ export default function SupermarketPage() {
     try {
       const key = `cart_${selectedSupermarket.id}`;
       const stored = localStorage.getItem(key);
-      if (stored) setCart(JSON.parse(stored));
+      if (stored) setCart(JSON.parse(stored) as CartItem[]);
       else setCart([]);
     } catch (e) {
       console.error("Load cart error", e);
@@ -265,7 +265,7 @@ export default function SupermarketPage() {
       toast.error("Out of stock");
       return;
     }
-    setCart((prev) => {
+    setCart((prev: CartItem[]) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
         if (existing.quantity < (product.stock ?? Infinity)) {
@@ -283,13 +283,13 @@ export default function SupermarketPage() {
   };
 
   const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((i) => i.product.id !== productId));
+    setCart((prev: CartItem[]) => prev.filter((i) => i.product.id !== productId));
     toast.success("Removed from cart");
   };
 
   const updateQuantity = (productId: string, qty: number) => {
     if (qty <= 0) return;
-    setCart((prev) =>
+    setCart((prev: CartItem[]) =>
       prev.map((i) => (i.product.id === productId ? { ...i, quantity: Math.min(qty, i.product.stock ?? qty) } : i))
     );
   };
@@ -300,17 +300,17 @@ export default function SupermarketPage() {
     if (cart.length === 0) return toast.error("Cart is empty");
 
     try {
-      const ids = cart.map((i) => i.product.id);
+      const ids: string[] = cart.map((i) => i.product.id);
       const { data: latestProducts } = await supabase.from("products").select("*").in("id", ids);
 
       for (const item of cart) {
-        const latest = (latestProducts as Product[])?.find((p) => p.id === item.product.id);
+        const latest: Product | undefined = (latestProducts as Product[])?.find((p) => p.id === item.product.id);
         if (!latest || latest.stock < item.quantity) {
           return toast.error(`Not enough stock for ${item.product.name}`);
         }
       }
 
-      const total = cart.reduce((sum, i) => sum + i.quantity * (i.product.price ?? 0), 0);
+      const total: number = cart.reduce((sum, i) => sum + i.quantity * (i.product.price ?? 0), 0);
 
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
@@ -327,7 +327,12 @@ export default function SupermarketPage() {
 
       if (orderError) throw orderError;
 
-      const orderItems = cart.map((i) => ({
+      const orderItems: {
+        order_id: string | undefined;
+        product_id: string;
+        quantity: number;
+        price: number;
+      }[] = cart.map((i) => ({
         order_id: orderData?.id,
         product_id: i.product.id,
         quantity: i.quantity,
@@ -388,7 +393,7 @@ export default function SupermarketPage() {
   };
 
   // Filtering + sorting passed to render
-  const filteredProducts = products
+  const filteredProducts: Product[] = products
     .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
     .filter((p) => (selectedCategory === "all" ? true : (p.category || "Uncategorized") === selectedCategory))
     .filter((p) => (p.price ?? 0) >= minPrice && (p.price ?? 0) <= maxPrice)
@@ -397,7 +402,7 @@ export default function SupermarketPage() {
     );
 
   // UI helpers
-  const cartTotal = cart.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0);
+  const cartTotal: number = cart.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-red-50 text-gray-900">
